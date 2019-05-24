@@ -1,0 +1,23 @@
+{
+  "env": {
+    "test": {
+      "presets": [
+        ["env", {
+          "targets:": { "node": "10" } // change this to your node version
+        }]
+      ]
+    },
+    "dev": {
+      "presets": [
+        ["env", { "modules": false }],
+        "stage-3"
+      ]
+    },
+    "build": {
+      "presets": [
+    ["env", { "modules": false }],
+    "stage-3"
+    ]
+    }
+}
+}
