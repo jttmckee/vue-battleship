@@ -1,11 +1,28 @@
 <template lang="html">
   <div class="#game-board">
-    <game-ship
-      v-for="(ship, index) in ships"
-      ref="ships"
-      :key="index"
-      :size="ship.size"
-    />
+    <div class="game-grid">
+      <game-ship
+        v-for="(ship, index) in ships"
+        ref="ships"
+        :player = "player"
+        :key="index"
+        :size="ship.size"
+        :style="ships[index].style"
+        :rotated="ship.start.x === ship.end.x"
+      />
+      <div
+        v-for="number in numberOfSeaTiles"
+        :key="'sea-tile-' + number"
+        class="sea-tile tile"
+      />
+      <div
+        v-for="number in numberOfMistTitles"
+        :key="'mist-tile-' + number"
+        class="mist-tile tile"
+      />
+    </div>
+    <div class="test" />
+    <div class="test" />
   </div>
 </template>
 
@@ -16,12 +33,30 @@ export default {
     'game-ship': Ship
   },
   props: {
-    width: { type: Number, required: true }
+    width: { type: Number, required: true },
+    player: { type: Boolean, required: true },
+    turn: {type: String, default: 'Player'}
   },
   data() {
     return {
       ships: [],
-      missedAttacks: []
+      missedAttacks: [],
+      hits: []
+        }
+  },
+  computed: {
+    numberOfShipTiles() {
+      return this.ships.reduce((total, ship) => ship.size + total, 0)
+    },
+    numberOfBlankTiles() {
+      return this.width * this.width - this.missedAttacks.length
+
+    },
+    numberOfMistTitles() {
+      return this.player ? 0 : this.numberOfBlankTiles - this.hits.length
+    },
+    numberOfSeaTiles() {
+      return this.player ? this.numberOfBlankTiles - this.numberOfShipTiles : 0
     }
   },
 
@@ -51,21 +86,50 @@ export default {
         start.x === end.x ? { mov: 'y', fix: 'x' } : { mov: 'x', fix: 'y' }
       return this._shipOnPath({ start, end, mov, fix })
     },
+    _setShipStyle({ start, end }) {
+      return {
+        gridColumnStart: `${start.x + 1}`,
+        gridColumnEnd: `${end.x + 2}`,
+        gridRowStart: `${start.y + 1}`,
+        gridRowEnd: `${end.y + 2}`
+      }
+    },
     _newShipOn({ axis, start, end }) {
-      const size = Math.abs(start[axis] - end[axis])
-      return size >= 1 && size <= 5 && this.ships.push({ size, start, end })
+      const size = Math.abs(start[axis] - end[axis]) + 1
+      return (
+        size >= 1 &&
+        size <= 5 &&
+        this.ships.push({
+          size,
+          start,
+          end,
+          style: this._setShipStyle({ start, end })
+        })
+      )
     },
     newShip({ start, end }) {
-      if (
-        ![start.x, start.y, end.x, end.y].every(this.valCoord) ||
-        this._shipBetween({ start, end })
-      )
-        return false
-
       return (
-        (start.x - end.x === 0 && this._newShipOn({ axis: 'y', start, end })) ||
-        (start.y - end.y === 0 && this._newShipOn({ axis: 'x', start, end }))
+        [start.x, start.y, end.x, end.y].every(this.valCoord) &&
+        !this._shipBetween({ start, end }) &&
+        ((start.x - end.x === 0 &&
+          this._newShipOn({ axis: 'y', start, end })) ||
+          (start.y - end.y === 0 && this._newShipOn({ axis: 'x', start, end })))
       )
+    },
+    randomShip(size) {
+      let start = {}
+      let end = {}
+      let mov, fix
+      do {
+        mov = Math.random() > 0.5 ? 'x' : 'y'
+        fix = mov === 'x' ? 'y' : 'x'
+        start[fix] = Math.floor(Math.random() * this.width)
+        start[mov] = Math.floor(Math.random() * (this.width - size))
+        end[fix] = start[fix]
+        end[mov] =  size -1 + start[mov]
+      }
+      while (!this.newShip({start, end}))
+
     },
     receiveAttack({ x, y }) {
       const shipIndex = this._shipAtPoint({ x, y })
@@ -73,10 +137,12 @@ export default {
         const shipVM = this.$refs.ships[shipIndex]
         const { start, end } = this.ships[shipIndex]
         const location = start.x === end.x ? y - start.y : x - start.x
-        return !!(shipVM.hit(location))
+        return !!shipVM.hit(location) && !!this.hits.push({x, y})
       } else {
-        return !(this.missedAttacks.some(e => e.x === x && e.y === y))
-        && !!this.missedAttacks.push({ x, y })
+        return (
+          !this.missedAttacks.some(e => e.x === x && e.y === y) &&
+          !!this.missedAttacks.push({ x, y })
+        )
       }
     },
     allShipsSunk() {
@@ -86,4 +152,28 @@ export default {
 }
 </script>
 
-<style lang="css" scoped></style>
+<style lang="css" scoped>
+.game-grid {
+  display: grid;
+  grid-auto-flow: row dense;
+  grid-template-columns: repeat(10, 40px);
+  grid-template-rows: repeat(10, 40px);
+  border: 7px solid black;
+  width: 400px;
+}
+
+.tile {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(150,50,50,0.4);
+}
+.sea-tile {
+
+  background-color: blue;
+  cursor: pointer;
+}
+.mist-tile {
+  background-color: grey;
+  cursor: pointer;
+}
+</style>

@@ -39,3 +39,28 @@ describe('Ship', () => {
     expect(vm.isSunk()).toBe(false)
   })
 })
+describe('Ship display', () => {
+  test('ship displays image', () => {
+    expect(wrapper.html()).toContain('img')
+  })
+  test('non sunk computer ships are invisible', () => {
+    vm = mount(Ship, { propsData: { size: 3, player:false } }).vm
+    expect(vm.display === true)
+
+
+  })
+  test(' player ships are visible', () => {
+    vm = mount(Ship, { propsData: { size: 3, player:true } }).vm
+    expect(vm.display === false)
+  })
+  test(' sunk computer ships are visible', () => {
+    vm = mount(Ship, { propsData: { size: 3, player:false } }).vm
+    vm.hit(0)
+    vm.hit(1)
+    vm.hit(2)
+    expect(vm.display === false)
+
+  })
+
+
+})
