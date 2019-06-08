@@ -2,7 +2,7 @@
   <div
     :class="klass" v-if= "display">
     <img
-      :src="`./assets/images/ships/${size}${rotated ? 'R' : ''}.png`"
+      :src="require(`./assets/images/ships/${size}${rotated ? 'R' : ''}.png`)"
 
       alt="A ship"
       >
