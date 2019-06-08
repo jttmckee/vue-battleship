@@ -1,6 +1,6 @@
 <template>
   <div
-    class="ship tile" v-if= "display">
+    :class="klass" v-if= "display">
     <img
       :src="require(`./assets/images/ships/${size}${rotated ? 'R' : ''}.png`)"
       alt="A ship"
@@ -14,7 +14,8 @@ export default {
   props: {
     size: { type: Number, required: true },
     rotated: {type: Boolean, default: false},
-    player: {type: Boolean, default: true}
+    player: {type: Boolean, default: true},
+    shipIndex: {type: Number, default: 0}
   },
   data() {
     return {
@@ -24,6 +25,9 @@ export default {
   computed: {
     display() {
       return this.player || this.isSunk()
+    },
+    klass() {
+      return 'ship tile' + (this.isSunk() ? ' sunk' : '')
     }
   },
   methods: {
@@ -47,9 +51,14 @@ export default {
   img {
     width: 100%;
     height: 100%;
+    transition: all 0.7s ease-in-out 0s;
+
   }
   .ship.tile {
-    background-color: blue;
+    background-color: rgba(0,0,0,0);
+  }
+  .ship.sunk img {
+    opacity: 0.6;
   }
 
 

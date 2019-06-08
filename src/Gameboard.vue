@@ -4,22 +4,32 @@
       <game-ship
         v-for="(ship, index) in ships"
         ref="ships"
-        :player = "player"
         :key="index"
+        :ship-index="index"
+        :player="player"
         :size="ship.size"
         :style="ships[index].style"
         :rotated="ship.start.x === ship.end.x"
       />
       <div
-        v-for="number in numberOfSeaTiles"
-        :key="'sea-tile-' + number"
-        class="sea-tile tile"
-      />
-      <div
-        v-for="number in numberOfMistTitles"
-        :key="'mist-tile-' + number"
-        class="mist-tile tile"
-      />
+        v-for="(number, index) in numberOfSeaTiles"
+        :id="'tile-' + index"
+        :key="'sea-tile-' + index"
+        :class="tileClass(index)"
+        :style="tileStyle(index)"
+        @click="hitTile(index)"
+      >
+        <img
+          v-if="tileWasHit(index)"
+          :src="require('./assets/images/explosion.png')"
+          alt="Explosion"
+        >
+        <img
+          v-if="tileWasMissed(index)"
+          :src="require('./assets/images/splash.png')"
+          alt="Splash"
+        >
+      </div>
     </div>
     <div class="test" />
     <div class="test" />
@@ -34,15 +44,15 @@ export default {
   },
   props: {
     width: { type: Number, required: true },
-    player: { type: Boolean, required: true },
-    turn: {type: String, default: 'Player'}
+    player: { type: Boolean, required: true }
   },
   data() {
     return {
       ships: [],
       missedAttacks: [],
-      hits: []
-        }
+      hits: [],
+      turn: false
+    }
   },
   computed: {
     numberOfShipTiles() {
@@ -50,17 +60,67 @@ export default {
     },
     numberOfBlankTiles() {
       return this.width * this.width - this.missedAttacks.length
-
     },
     numberOfMistTitles() {
       return this.player ? 0 : this.numberOfBlankTiles - this.hits.length
     },
     numberOfSeaTiles() {
-      return this.player ? this.numberOfBlankTiles - this.numberOfShipTiles : 0
+      return this.width * this.width
     }
+  },
+  watch: {
+    turn() {
+      if (this.player && this.turn) {
+        let x, y
+        do {
+          x = Math.floor(Math.random() * this.width)
+          y = Math.floor(Math.random() * this.width)
+        } while (!this.receiveAttack({ x, y }))
+      }
+    }
+
   },
 
   methods: {
+    _checkWinner() {
+      if (this.allShipsSunk()) {
+        const winner = this.player ? 'Computer' : 'Player'
+        this.$emit('winner', winner)
+        return true
+      }
+
+    },
+    tileWasMissed(index) {
+      const { x, y } = this._getRowColFrom(index)
+      return this.missedAttacks.some(e => e.x === x && e.y === y)
+    },
+    _getRowColFrom(index) {
+      return { x: index % this.width, y: Math.floor(index / this.width) }
+    },
+    tileWasHit(index) {
+      const { x, y } = this._getRowColFrom(index)
+      return this.hits.some(e => e.x === x && e.y === y)
+    },
+    hitTile(index) {
+      this.turn && this.receiveAttack(this._getRowColFrom(index))
+    },
+    tileClass(index) {
+      const { x, y } = this._getRowColFrom(index)
+      const ships = this.$refs.ships
+      const ship = this._shipAtPoint({ x, y })
+      let shipEl
+      if (ships) {
+        shipEl = ships.find(vm => vm.shipIndex === ship)
+      }
+      const hitTile = this.tileWasHit(index) ? 'hit-tile ' : ''
+      return hitTile + (this.player || (ships && shipEl && shipEl.isSunk())
+        ? 'sea-tile tile'
+        : 'mist-tile tile')
+    },
+    tileStyle(index) {
+      const { y, x } = this._getRowColFrom(index)
+      return { gridColumn: x + 1, gridRow: y + 1 }
+    },
     valCoord(a) {
       return Number.isInteger(a) && a >= 0 && a < this.width
     },
@@ -126,23 +186,28 @@ export default {
         start[fix] = Math.floor(Math.random() * this.width)
         start[mov] = Math.floor(Math.random() * (this.width - size))
         end[fix] = start[fix]
-        end[mov] =  size -1 + start[mov]
-      }
-      while (!this.newShip({start, end}))
-
+        end[mov] = size - 1 + start[mov]
+      } while (!this.newShip({ start, end }))
     },
     receiveAttack({ x, y }) {
+      if (
+        this.missedAttacks.some(e => e.x === x && e.y === y) ||
+        this.hits.some(e => e.x === x && e.y === y)
+      ) {
+        return false
+      } else {
+        this.$emit('turn-finished')
+      }
+
       const shipIndex = this._shipAtPoint({ x, y })
       if (shipIndex >= 0) {
-        const shipVM = this.$refs.ships[shipIndex]
+        const shipVM = this.$refs.ships.find(vm => vm.shipIndex === shipIndex)
         const { start, end } = this.ships[shipIndex]
         const location = start.x === end.x ? y - start.y : x - start.x
-        return !!shipVM.hit(location) && !!this.hits.push({x, y})
+        return !!shipVM.hit(location) && !!this.hits.push({ x, y })  &&
+        (this._checkWinner() || true)
       } else {
-        return (
-          !this.missedAttacks.some(e => e.x === x && e.y === y) &&
-          !!this.missedAttacks.push({ x, y })
-        )
+        return !!this.missedAttacks.push({ x, y })
       }
     },
     allShipsSunk() {
@@ -160,6 +225,7 @@ export default {
   grid-template-rows: repeat(10, 40px);
   border: 7px solid black;
   width: 400px;
+  background-color: blue;
 }
 
 .tile {
@@ -171,9 +237,50 @@ export default {
 
   background-color: blue;
   cursor: pointer;
+  align-items: center;
+  justify-items: center;
+}
+.ship.tile {
+  z-index: 1;
+}
+@keyframes attack {
+  0% {
+    width: 1%;
+    height: 1%;
+    opacity: 0.2;
+  }
+  40% {
+    width: 150%;
+    height: 150%;
+    opacity: 1;
+  }
+  60% {
+    width: 60%;
+    height: 60%;
+    opacity: 1;
+  }
+  100% {
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+  }
+}
+.sea-tile img, .mist-tile img {
+  animation: attack 350ms ease-in-out 0ms 1;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
 }
 .mist-tile {
   background-color: grey;
   cursor: pointer;
+  display: grid;
+  align-items: center;
+  justify-items: center;
+
+}
+.hit-tile {
+  background-color: transparent;
+  z-index: 3;
 }
 </style>
