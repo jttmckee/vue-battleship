@@ -21,12 +21,12 @@
       >
         <img
           v-if="tileWasHit(index)"
-          :src="require('./assets/images/explosion.png')"
+          src="./assets/images/explosion.png"
           alt="Explosion"
         >
         <img
           v-if="tileWasMissed(index)"
-          :src="require('./assets/images/splash.png')"
+          src="./assets/images/splash.png"
           alt="Splash"
         >
       </div>
